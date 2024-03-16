@@ -3,6 +3,7 @@ import xml.etree.ElementTree as ET
 import nltk
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 def get_documents(path):
     files = [f for f in os.listdir(documents_path)]
@@ -67,3 +68,18 @@ for i in range(len(corpus)):
 # print(stop_words)
 # print("\n\nAfter stop words removal and stemming:\n\n",corpus[0])
 
+corpus_texts = [" ".join(tokens) for tokens in corpus]
+vectorizer = TfidfVectorizer()
+tfidf_matrix = vectorizer.fit_transform(corpus_texts)
+
+# Get feature names (words)
+feature_names = vectorizer.get_feature_names_out()
+
+# Convert TF-IDF matrix to a list of dictionaries
+tfidf_list = []
+for i, document in enumerate(corpus):
+    feature_index = tfidf_matrix[i,:].nonzero()[1]
+    tfidf_scores = zip(feature_index, [tfidf_matrix[i, x] for x in feature_index])
+    tfidf_dict = {feature_names[i]: score for i, score in tfidf_scores}
+    tfidf_list.append(tfidf_dict)
+print(feature_names)
