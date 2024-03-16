@@ -1,5 +1,8 @@
 import os
 import xml.etree.ElementTree as ET
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer
 
 def get_documents(path):
     files = [f for f in os.listdir(documents_path)]
@@ -24,27 +27,9 @@ def get_documents(path):
     return documents
 
 def get_stop_words(corpus, alpha = 0.01):
-
-    collection_size = sum([len(document) for document in corpus])
-
-    threshold_freq = alpha*collection_size
-
-    print(collection_size, threshold_freq)
-    term_frequency = {}
-    for document in corpus:
-        for term in document:
-            if term not in term_frequency:
-                term_frequency[term] = 1
-            else:
-                term_frequency[term] +=1
-
-    terms = []
-
-    for term in term_frequency.keys():
-        if term_frequency[term]> threshold_freq:
-            terms.append(term)
-    
-    return terms
+    #nltk.download('stopwords')
+    stop_words = set(stopwords.words('english'))
+    return stop_words
 
 
 def tokenize(document):
@@ -58,16 +43,27 @@ def tokenize(document):
                 tokens.append(word)
     return tokens
 
+def stem(document):
+    stemmer = PorterStemmer()
+    # Perform stemming on the doc
+    stemmed_doc = [stemmer.stem(word) for word in document]
+    return stemmed_doc
+
 documents_path = r'D:/sem_8/Information Retrieval/pan18-author-profiling-training-dataset-2018-02-27/pan18-author-profiling-training-dataset-2018-02-27/en/text'
 documents=get_documents(documents_path)
 
 corpus = [tokenize(document) for document in documents]
+#corpus = [nltk.word_tokenize(document) for document in documents]
 # print("\n\nAfter tokenizing:\n\n",corpus[0])
 N = len(corpus)
 
 stop_words = get_stop_words(corpus)
 for i in range(len(corpus)):
+    print("original ",len(corpus[i]))
     corpus[i] = [term for term in corpus[i] if term not in stop_words]
-
+    print("stop w ",len(corpus[i]))
+    corpus[i] = stem(corpus[i])
+    print("stem ",len(corpus[i]))
 # print(stop_words)
-# print("\n\nAfter stop words removal:\n\n",corpus[0])
+# print("\n\nAfter stop words removal and stemming:\n\n",corpus[0])
+
