@@ -22,6 +22,7 @@ def preprocess_xml_files(folder_path):
                 preprocessed_data.append(author_data)
     return preprocessed_data
 
+
 def parse_xml(file_path):
     try:
         tree = ET.parse(file_path)
