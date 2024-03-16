@@ -165,7 +165,7 @@ def perform_svd(tfidf_vectors_per_user, output_file):
     with open(output_file, 'w', encoding='utf-8') as f:
         for user, (tfidf_vectorizer, tfidf_vectors) in tfidf_vectors_per_user.items():
             f.write(f"User {user}:\n")
-            svd = TruncatedSVD(n_components=5)  # Set the number of components as desired
+            svd = TruncatedSVD(n_components=5)  
             svd_vectors = svd.fit_transform(tfidf_vectors)
             for i, svd_vector in enumerate(svd_vectors):
                 f.write(f"SVD Component {i + 1}:\n")
@@ -186,9 +186,9 @@ def perform_lsa(tfidf_vectors_per_user, output_file):
     with open(output_file, 'w', encoding='utf-8') as f:
         for user, (tfidf_vectorizer, tfidf_vectors) in tfidf_vectors_per_user.items():
             f.write(f"User {user}:\n")
-            # Concatenate TF-IDF vectors for 100 tweets
+            
             combined_tfidf_vectors = tfidf_vectors[:100]  
-            svd = TruncatedSVD(n_components=5)  # Set the number of components as desired
+            svd = TruncatedSVD(n_components=5)  
             lsa_vectors = svd.fit_transform(combined_tfidf_vectors)
             for i, lsa_vector in enumerate(lsa_vectors):
                 f.write(f"LSA Component {i + 1}:\n")
