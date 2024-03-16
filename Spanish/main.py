@@ -173,7 +173,31 @@ def perform_svd(tfidf_vectors_per_user, output_file):
                     f.write(f"Value {j + 1}: {value}\n")
             f.write("\n")
 
+
 # Perform SVD for each user's TF-IDF vectors
 output_svd_file_path = 'spanish_svd.txt'
 perform_svd(tfidf_vectors_per_user, output_svd_file_path)
 print("SVD components written to", output_svd_file_path)
+
+from sklearn.decomposition import TruncatedSVD
+
+# Function to perform LSA for each user
+def perform_lsa(tfidf_vectors_per_user, output_file):
+    with open(output_file, 'w', encoding='utf-8') as f:
+        for user, (tfidf_vectorizer, tfidf_vectors) in tfidf_vectors_per_user.items():
+            f.write(f"User {user}:\n")
+            # Concatenate TF-IDF vectors for 100 tweets
+            combined_tfidf_vectors = tfidf_vectors[:100]  
+            svd = TruncatedSVD(n_components=5)  # Set the number of components as desired
+            lsa_vectors = svd.fit_transform(combined_tfidf_vectors)
+            for i, lsa_vector in enumerate(lsa_vectors):
+                f.write(f"LSA Component {i + 1}:\n")
+                for j, value in enumerate(lsa_vector):
+                    f.write(f"Value {j + 1}: {value}\n")
+            f.write("\n")
+
+# Perform LSA for each user's TF-IDF vectors
+output_lsa_file_path = 'spanish_lsa.txt'
+perform_lsa(tfidf_vectors_per_user, output_lsa_file_path)
+print("LSA components written to", output_lsa_file_path)
+
