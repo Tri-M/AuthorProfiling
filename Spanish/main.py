@@ -87,11 +87,13 @@ with open(output_file_path, 'w', encoding='utf-8') as f:
 
 print("Output written to", output_file_path)
 
+#________________________________________________________________
+#TF-IDF
+
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 
-# Load the preprocessed tweets from the output file
 def load_tweets_from_file(output_file_path):
     tweets_per_user = {}
     current_user = None
@@ -102,9 +104,12 @@ def load_tweets_from_file(output_file_path):
                 current_user = line.split()[1]
                 tweets_per_user[current_user] = []
             elif line.startswith('Tweet'):
-                tweet_content = line.split(': ')[1].strip()
-                tweets_per_user[current_user].append(tweet_content)
+                split_line = line.split(': ')
+                if len(split_line) > 1:
+                    tweet_content = split_line[1].strip()
+                    tweets_per_user[current_user].append(tweet_content)
     return tweets_per_user
+
 
 # Function to calculate TF-IDF vectors for each user
 def calculate_tfidf_vectors(tweets_per_user):
@@ -150,3 +155,25 @@ output_tfidf_file_path = 'spanish_tfidf_output.txt'
 print_words_with_tfidf(tfidf_vectors_per_user, output_tfidf_file_path)
 
 print("TF-IDF words and scores written to", output_tfidf_file_path)
+
+#__________________________________________
+
+from sklearn.decomposition import TruncatedSVD
+
+# Function to perform SVD for each user
+def perform_svd(tfidf_vectors_per_user, output_file):
+    with open(output_file, 'w', encoding='utf-8') as f:
+        for user, (tfidf_vectorizer, tfidf_vectors) in tfidf_vectors_per_user.items():
+            f.write(f"User {user}:\n")
+            svd = TruncatedSVD(n_components=5)  # Set the number of components as desired
+            svd_vectors = svd.fit_transform(tfidf_vectors)
+            for i, svd_vector in enumerate(svd_vectors):
+                f.write(f"SVD Component {i + 1}:\n")
+                for j, value in enumerate(svd_vector):
+                    f.write(f"Value {j + 1}: {value}\n")
+            f.write("\n")
+
+# Perform SVD for each user's TF-IDF vectors
+output_svd_file_path = 'spanish_svd.txt'
+perform_svd(tfidf_vectors_per_user, output_svd_file_path)
+print("SVD components written to", output_svd_file_path)
