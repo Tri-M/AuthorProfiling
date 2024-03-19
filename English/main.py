@@ -4,11 +4,12 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import TruncatedSVD
 
 def get_documents(path):
     files = [f for f in os.listdir(documents_path)]
     documents = []
-    for f in files[:10]:    #parsing only 10 xml files for fast execution 
+    for f in files[:2]:    #parsing only 10 xml files for fast execution 
         with open(os.path.join(documents_path, f), 'r', encoding='utf-8') as file:
             xml_content = file.read()
             root = ET.fromstring(xml_content)
@@ -27,59 +28,90 @@ def get_documents(path):
     # print(txt)
     return documents
 
-def get_stop_words(corpus, alpha = 0.01):
+def remove_stop_words(corpus, alpha = 0.01):
     #nltk.download('stopwords')
     stop_words = set(stopwords.words('english'))
-    return stop_words
+    cleaned_corpus = []
+    for document in corpus:
+        words = document.split()  # Split the document into words
+        cleaned_words = [word for word in words if word.lower() not in stop_words]  # Filter out stop words
+        cleaned_document = ' '.join(cleaned_words)  # Join the cleaned words back into a string
+        cleaned_corpus.append(cleaned_document)
+    return cleaned_corpus
 
 
 def tokenize(document):
     import re
+    document=re.sub('[^a-zA-Z0-9\s]', '', document).lower()
+            
+    return document
 
-    tokens = []
-    
-    for string in document.split():
-            word=re.sub('[^a-zA-Z0-9]', '', string).lower()
-            if word:       #remove empty string
-                tokens.append(word)
-    return tokens
-
-def stem(document):
+def stem(corpus):
     stemmer = PorterStemmer()
     # Perform stemming on the doc
-    stemmed_doc = [stemmer.stem(word) for word in document]
-    return stemmed_doc
+    stemmed_corpus = []
+    for document in corpus:
+        words = document.split()  # Split the document into words
+        stemmed_words = [stemmer.stem(word) for word in words]  # Stem each word
+        stemmed_document = ' '.join(stemmed_words)  # Join the stemmed words back into a string
+        stemmed_corpus.append(stemmed_document)
+    return stemmed_corpus
+
+def tf_idf(corpus):
+    # Create a TF-IDF vectorizer
+    vectorizer = TfidfVectorizer()
+
+    # Fit the vectorizer to the stemmed corpus and transform the corpus into TF-IDF vectors
+    tfidf_matrix = vectorizer.fit_transform(corpus)
+
+    # Get feature names (words)
+    feature_names = vectorizer.get_feature_names_out()
+    return tfidf_matrix,feature_names
+
+def svd(tfidf_matrix):
+    # Create an SVD model with the desired number of components
+    svd_model = TruncatedSVD(n_components=5)
+
+    # Fit the SVD model to the TF-IDF matrix
+    svd_matrix = svd_model.fit_transform(tfidf_matrix)
+    return svd_matrix
+def lsa(tfidf_matrix):
+    svd_model = TruncatedSVD(n_components=5)
+
+    # Fit the SVD model to the TF-IDF matrix
+    lsa_matrix = svd_model.fit_transform(tfidf_matrix)
+    return lsa_matrix
+
 
 documents_path = r'D:/sem_8/Information Retrieval/pan18-author-profiling-training-dataset-2018-02-27/pan18-author-profiling-training-dataset-2018-02-27/en/text'
 documents=get_documents(documents_path)
 
 corpus = [tokenize(document) for document in documents]
-#corpus = [nltk.word_tokenize(document) for document in documents]
 # print("\n\nAfter tokenizing:\n\n",corpus[0])
-N = len(corpus)
+# print(len(corpus[0]))
 
-stop_words = get_stop_words(corpus)
-for i in range(len(corpus)):
-    print("original ",len(corpus[i]))
-    corpus[i] = [term for term in corpus[i] if term not in stop_words]
-    print("stop w ",len(corpus[i]))
-    corpus[i] = stem(corpus[i])
-    print("stem ",len(corpus[i]))
-# print(stop_words)
-# print("\n\nAfter stop words removal and stemming:\n\n",corpus[0])
+corpus = remove_stop_words(corpus)
+# print("\n\nAfter stop words removal:\n\n",corpus[0])
+# print(len(corpus[0]))
 
-corpus_texts = [" ".join(tokens) for tokens in corpus]
-vectorizer = TfidfVectorizer()
-tfidf_matrix = vectorizer.fit_transform(corpus_texts)
+corpus=stem(corpus)
+# print("\n\nAfter stemming:\n\n",corpus[0])
+# print(len(corpus[0]))
 
-# Get feature names (words)
-feature_names = vectorizer.get_feature_names_out()
+tfidf_matrix,feature_names=tf_idf(corpus)
+# Print TF-IDF matrix
+print("\nTF-IDF Matrix:\n")
+print(tfidf_matrix.toarray())
 
-# Convert TF-IDF matrix to a list of dictionaries
-tfidf_list = []
-for i, document in enumerate(corpus):
-    feature_index = tfidf_matrix[i,:].nonzero()[1]
-    tfidf_scores = zip(feature_index, [tfidf_matrix[i, x] for x in feature_index])
-    tfidf_dict = {feature_names[i]: score for i, score in tfidf_scores}
-    tfidf_list.append(tfidf_dict)
-print(feature_names)
+# Print feature names
+# print("\nFeature Names:\n\n",feature_names)
+
+svd_matrix=svd(tfidf_matrix)
+# Print the SVD matrix
+print("\n\nSVD Matrix:\n",svd_matrix)
+
+lsa_matrix=lsa(tfidf_matrix)
+
+# Print the LSA matrix
+print("\n\nLSA Matrix:\n")
+print(lsa_matrix)
