@@ -201,3 +201,36 @@ output_lsa_file_path = 'spanish_lsa.txt'
 perform_lsa(tfidf_vectors_per_user, output_lsa_file_path)
 print("LSA components written to", output_lsa_file_path)
 
+from sklearn.pipeline import Pipeline
+from sklearn.decomposition import TruncatedSVD
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+import xgboost as xgb
+import numpy as np
+
+# Load the TF-IDF vectors
+tfidf_vectors_per_user = load_tweets_from_file(output_tfidf_file_path)
+
+# Convert TF-IDF vectors to arrays
+X = np.vstack([vector for _, (_, vector) in tfidf_vectors_per_user.items()])
+users = list(tfidf_vectors_per_user.keys())
+
+# Apply TruncatedSVD (LSA) to reduce dimensionality
+svd = TruncatedSVD(n_components=100)  # Adjust the number of components as needed
+X_svd = svd.fit_transform(X)
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X_svd, users, test_size=0.2, random_state=42)
+
+# Initialize XGBoost classifier
+xgb_classifier = xgb.XGBClassifier()
+
+# Train the classifier
+xgb_classifier.fit(X_train, y_train)
+
+# Predict on the test set
+y_pred = xgb_classifier.predict(X_test)
+
+# Calculate accuracy
+accuracy = accuracy_score(y_test, y_pred)
+print("Accuracy:", accuracy)
