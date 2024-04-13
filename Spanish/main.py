@@ -122,8 +122,6 @@ def calculate_tfidf_vectors(tweets_per_user):
         tfidf_vectors_per_user[user] = (tfidf_vectorizer, tfidf_vectors)
     return tfidf_vectors_per_user
 
-
-# Function to print words along with their TF-IDF scores
 def print_words_with_tfidf(tfidf_vectors_per_user, output_file):
     with open(output_file, 'a', encoding='utf-8') as f:
         for user, (tfidf_vectorizer, tfidf_vectors) in tfidf_vectors_per_user.items():
@@ -179,14 +177,13 @@ output_svd_file_path = 'spanish_svd.txt'
 perform_svd(tfidf_vectors_per_user, output_svd_file_path)
 print("SVD components written to", output_svd_file_path)
 
-from sklearn.decomposition import TruncatedSVD
+from sklearn.decomposition import TruncatedSVD  
 
 # Function to perform LSA for each user
 def perform_lsa(tfidf_vectors_per_user, output_file):
     with open(output_file, 'w', encoding='utf-8') as f:
         for user, (tfidf_vectorizer, tfidf_vectors) in tfidf_vectors_per_user.items():
             f.write(f"User {user}:\n")
-            
             combined_tfidf_vectors = tfidf_vectors[:100]  
             svd = TruncatedSVD(n_components=5)  
             lsa_vectors = svd.fit_transform(combined_tfidf_vectors)
@@ -201,35 +198,68 @@ output_lsa_file_path = 'spanish_lsa.txt'
 perform_lsa(tfidf_vectors_per_user, output_lsa_file_path)
 print("LSA components written to", output_lsa_file_path)
 
-from sklearn.pipeline import Pipeline
-from sklearn.decomposition import TruncatedSVD
+import numpy as np
+import xgboost as xgb
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
-import xgboost as xgb
-import numpy as np
 
-# Load the TF-IDF vectors
-tfidf_vectors_per_user = load_tweets_from_file(output_tfidf_file_path)
+# Load LSA components from file
+def load_lsa_components(filename):
+    lsa_components_dict = {}
+    max_lsa_length = 0
 
-# Convert TF-IDF vectors to arrays
-X = np.vstack([vector for _, (_, vector) in tfidf_vectors_per_user.items()])
-users = list(tfidf_vectors_per_user.keys())
+    with open(filename, 'r') as file:
+        for line in file:
+            line = line.strip()
+            if line.startswith("User"):
+                current_user_label = int(line.split()[1].replace("::", ""))
+                current_lsa_values = []
+            elif line.startswith("Value"):
+                _, lsa_value = line.split(": ")
+                current_lsa_values.append(float(lsa_value))
+            elif not line:
+                lsa_components_dict[current_user_label] = current_lsa_values
+                max_lsa_length = max(max_lsa_length, len(current_lsa_values))
 
-# Apply TruncatedSVD (LSA) to reduce dimensionality
-svd = TruncatedSVD(n_components=100)  # Adjust the number of components as needed
-X_svd = svd.fit_transform(X)
+    # Pad LSA values to ensure they all have the same length
+    for user_label, lsa_values in lsa_components_dict.items():
+        padding_length = max_lsa_length - len(lsa_values)
+        lsa_components_dict[user_label] = lsa_values + [0] * padding_length  # Pad with zeros
 
+    return lsa_components_dict
+
+lsa_file_path = 'spanish_lsa.txt'
+lsa_components_dict = load_lsa_components(lsa_file_path)
+
+# Prepare data for training and testing
+X = np.array(list(lsa_components_dict.values()))  # Features
+y = np.array(list(lsa_components_dict.keys()))    # Labels
+
+# Encode labels as integers starting from 0
+label_to_index = {label: index for index, label in enumerate(np.unique(y))}
+y_encoded = np.array([label_to_index[label] for label in y])
+
+from sklearn.preprocessing import LabelEncoder
 # Split the data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X_svd, users, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=42)
+# Encode labels as integers starting from 0
+label_encoder = LabelEncoder()
+y_train_encoded = label_encoder.fit_transform(y_train)
 
-# Initialize XGBoost classifier
-xgb_classifier = xgb.XGBClassifier()
+# Print unique values of y_train_encoded
+print("Unique values of y_train_encoded:", np.unique(y_train_encoded))
+
+# Initialize XGBoost classifier with GPU support
+xgb_classifier = xgb.XGBClassifier(tree_method='gpu_hist')
 
 # Train the classifier
-xgb_classifier.fit(X_train, y_train)
+xgb_classifier.fit(X_train, y_train_encoded)
 
 # Predict on the test set
-y_pred = xgb_classifier.predict(X_test)
+y_pred_encoded = xgb_classifier.predict(X_test)
+
+# Decode predicted labels
+y_pred = label_encoder.inverse_transform(y_pred_encoded)
 
 # Calculate accuracy
 accuracy = accuracy_score(y_test, y_pred)
