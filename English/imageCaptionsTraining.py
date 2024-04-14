@@ -1,47 +1,7 @@
-def extract_image_captions(filename):
-    user_captions = {}
-    current_user = None
-    
-    with open(filename, 'r') as f:
-        lines = f.readlines()
-        
-        for line in lines:
-            line = line.strip()
-            
-            if line.endswith(':'):
-                current_user = line[:-1]  # Extract user ID
-                user_captions[current_user] = {}
-            elif '.jpeg caption:' in line:
-                parts = line.split('.jpeg caption:')
-                image_id = parts[0].strip()
-                caption = parts[1].split(',')[0].strip()
-                user_captions[current_user][image_id] = caption
-    
-    return user_captions
-
-def write_captions_to_file(user_captions, output_filename):
-    with open(output_filename, 'w') as f:
-        for user, image_captions in user_captions.items():
-            if user != 'photo':  # Skip writing the folder name line
-                f.write(f"User: {user}\n")
-                for image_id, caption in image_captions.items():
-                    f.write(f"{image_id}: {caption}\n")
-                f.write("\n")  # Add a blank line between users
-
-# Example usage:
-caption_filename = 'captions_output.txt'
-output_filename = 'extracted_captions.txt'
-
-# Extract image captions from the file
-image_captions_by_user = extract_image_captions(caption_filename)
-
-# Write the extracted captions to a file
-write_captions_to_file(image_captions_by_user, output_filename)
-
-print(f"Extracted captions have been written to '{output_filename}'.")
-
+import numpy as np
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import TruncatedSVD
 
 def load_captions(filename):
     user_captions = {}
@@ -72,62 +32,54 @@ def preprocess_caption(caption):
     processed_caption = re.sub(r'[^\w\s]', '', processed_caption)
     return processed_caption.strip()
 
-def perform_tfidf_vectorization(user_captions):
-    tfidf_vectors_per_user = {}
+def perform_tfidf_lsa(user_captions):
+    lsa_vectors_per_user = {}
     
     for user, captions in user_captions.items():
         processed_captions = [preprocess_caption(caption) for _, caption in captions]
         
-        # Create TF-IDF vectorizer
-        tfidf_vectorizer = TfidfVectorizer()
+        # Create TF-IDF vectorizer with appropriate settings
+        tfidf_vectorizer = TfidfVectorizer(use_idf=True, smooth_idf=True, norm=None)
         
         # Fit and transform the processed captions into TF-IDF vectors
         tfidf_vectors = tfidf_vectorizer.fit_transform(processed_captions)
         
-        # Store the TF-IDF vectorizer and vectors in a dictionary
-        tfidf_vectors_per_user[user] = (tfidf_vectorizer, tfidf_vectors)
+        # Determine a suitable number of components for TruncatedSVD (LSA)
+        n_components = min(tfidf_vectors.shape) - 1
+        if n_components < 2:
+            print(f"Warning: Insufficient features ({tfidf_vectors.shape[1]}) for LSA. Skipping user {user}.")
+            continue
+        
+        # Perform Truncated SVD (LSA)
+        lsa = TruncatedSVD(n_components=n_components)
+        lsa_vectors = lsa.fit_transform(tfidf_vectors)
+        
+        # Store the LSA vectors in a dictionary
+        lsa_vectors_per_user[user] = (lsa, lsa_vectors)
     
-    return tfidf_vectors_per_user
+    return lsa_vectors_per_user
 
-def print_tfidf_vectors(tfidf_vectors_per_user):
-    for user, (tfidf_vectorizer, tfidf_vectors) in tfidf_vectors_per_user.items():
-        print(f"User: {user}")
-        for i, (_, caption) in enumerate(user_captions[user]):
-            print(f"{user}.{i}: {caption}")
-        print("TF-IDF Vectors:")
-        print(tfidf_vectors.toarray())  # Print TF-IDF vectors as arrays
-        print()
-
+def write_lsa_results_to_file(lsa_vectors_per_user, output_filename):
+    with open(output_filename, 'w') as f:
+        for user, (lsa, lsa_vectors) in lsa_vectors_per_user.items():
+            f.write(f"User: {user}\n")
+            for i, lsa_component in enumerate(lsa.components_):
+                f.write(f"LSA Component {i + 1}:\n")
+                for j, value in enumerate(lsa_component):
+                    f.write(f"Value {j + 1}: {value}\n")
+            f.write("\n")
 
 # Define the filename containing the captions
-caption_filename = 'extracted_captions.txt'
+caption_filename = 'F:\AP\AuthorProfiling\English\extracted_captions.txt'
+output_filename = 'F:\AP\AuthorProfiling\English\imagecaption_lsa_results.txt'
 
 # Load and parse image captions for each user
 user_captions = load_captions(caption_filename)
 
-# Perform TF-IDF vectorization for each user
-tfidf_vectors_per_user = perform_tfidf_vectorization(user_captions)
+# Perform TF-IDF vectorization and LSA
+lsa_vectors_per_user = perform_tfidf_lsa(user_captions)
 
-def print_tfidf_scores(tfidf_vectors_per_user):
-    for user, (tfidf_vectorizer, tfidf_vectors) in tfidf_vectors_per_user.items():
-        print(f"User: {user}")
-        for i, (_, caption) in enumerate(user_captions[user]):
-            print(f"{user}.{i}: {caption}")
-        
-        # Get the feature names (words) from the TF-IDF vectorizer
-        feature_names = tfidf_vectorizer.get_feature_names_out()
-        
-        # Retrieve the TF-IDF scores for each term (word) in the vocabulary
-        tfidf_scores = tfidf_vectors.toarray()
-        
-        # Print the TF-IDF scores for each term (word)
-        for j, term in enumerate(feature_names):
-            print(f"TF-IDF Score for '{term}': {tfidf_scores[:, j]}")
-        print()
+# Write LSA results to a file
+write_lsa_results_to_file(lsa_vectors_per_user, output_filename)
 
-# Call the function to print TF-IDF scores for each user
-print_tfidf_scores(tfidf_vectors_per_user)
-
-# Print TF-IDF vectors for each user
-# print_tfidf_vectors(tfidf_vectors_per_user)
-
+print(f"LSA results have been written to '{output_filename}'.")
