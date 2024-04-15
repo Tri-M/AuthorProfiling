@@ -8,14 +8,18 @@ from nltk.stem import PorterStemmer
 import os
 import xml.etree.ElementTree as ET
 import re
+from nltk.stem.snowball import SnowballStemmer
+
+# Create a Snowball Stemmer for Arabic
+
 
 nltk.download('stopwords')
 nltk.download('punkt')
 
-# Load english stopwords
-stop_words = set(stopwords.words('english'))
-# Initialize english stemmer
-stemmer = PorterStemmer()
+# Load arabic stopwords
+stop_words = set(stopwords.words('arabic'))
+# Initialize arabic stemmer
+stemmer = SnowballStemmer(language='arabic')
 
 def preprocess_xml_files(folder_path):
     preprocessed_data = {}
@@ -74,8 +78,8 @@ def preprocess_text(text):
     return ' '.join(stemmed_tokens).strip()
 
 
-folder_path = r'D:\sem_8\Information Retrieval\pan18-author-profiling-training-dataset-2018-02-27\pan18-author-profiling-training-dataset-2018-02-27\en\text'
-output_file_path = 'mf_english_output.txt'
+folder_path = r'D:\sem_8\Information Retrieval\pan18-author-profiling-training-dataset-2018-02-27\pan18-author-profiling-training-dataset-2018-02-27\ar\text'
+output_file_path = r'.\Arabic\mf_arabic_output.txt'
 
 preprocessed_data = preprocess_xml_files(folder_path)
 
@@ -114,7 +118,7 @@ def load_tweets_from_file(output_file_path):
     return tweets_per_user
 
 
-# # Function to calculate TF-IDF vectors for each user
+# Function to calculate TF-IDF vectors for each user
 def calculate_tfidf_vectors(tweets_per_user):
     tfidf_vectors_per_user = {}
     tfidf_vectorizer = TfidfVectorizer()
@@ -125,8 +129,6 @@ def calculate_tfidf_vectors(tweets_per_user):
         tfidf_vectors_per_user[user] = (tfidf_vectorizer, tfidf_vectors)
     return tfidf_vectors_per_user
 
-
-# Function to print words along with their TF-IDF scores
 def print_words_with_tfidf(tfidf_vectors_per_user, output_file):
     with open(output_file, 'a', encoding='utf-8') as f:
         for user, (tfidf_vectorizer, tfidf_vectors) in tfidf_vectors_per_user.items():
@@ -154,7 +156,7 @@ tweets_per_user = load_tweets_from_file(output_file_path)
 tfidf_vectors_per_user = calculate_tfidf_vectors(tweets_per_user)
 
 # Write the results to a new file
-output_tfidf_file_path = 'mf_english_tfidf_output.txt'
+output_tfidf_file_path = r'.\Arabic\mf_arabic_tfidf_output.txt'
 print_words_with_tfidf(tfidf_vectors_per_user, output_tfidf_file_path)
 
 print("TF-IDF words and scores written to", output_tfidf_file_path)
@@ -178,7 +180,7 @@ def perform_svd(tfidf_vectors_per_user, output_file):
 
 
 # Perform SVD for each user's TF-IDF vectors
-output_svd_file_path = 'mf_english_svd.txt'
+output_svd_file_path = r'.\Arabic\mf_arabic_svd.txt'
 perform_svd(tfidf_vectors_per_user, output_svd_file_path)
 print("SVD components written to", output_svd_file_path)
 
@@ -200,7 +202,7 @@ def perform_lsa(tfidf_vectors_per_user, output_file):
             f.write("\n")
 
 # Perform LSA for each user's TF-IDF vectors
-output_lsa_file_path = 'mf_english_lsa.txt'
+output_lsa_file_path = r'.\Arabic\mf_arabic_lsa.txt'
 perform_lsa(tfidf_vectors_per_user, output_lsa_file_path)
 print("LSA components written to", output_lsa_file_path)
 
@@ -249,7 +251,7 @@ def load_lsa_components(filename):
 
     return lsa_components_dict
 
-filename = r"D:\sem_8\Information Retrieval\package\AuthorProfiling\mf_english_lsa.txt"
+filename = r"Arabic\mf_arabic_lsa.txt"
 lsa_components_dict=load_lsa_components(filename)
 # print(len(lsa_components_dict))
 # print(len(lsa_components_dict.values()))
@@ -282,7 +284,7 @@ for user_label, values in lsa_components_dict.items():
 # max_length = max(len(x) for x in X)
 # X = [x + [[0, 0, 0, 0, 0]] * (max_length - len(x)) if len(x) < 100 else x for x in X]
 gender_dict = {}
-with open("D:\sem_8\Information Retrieval\pan18-author-profiling-training-dataset-2018-02-27\pan18-author-profiling-training-dataset-2018-02-27\en\en.txt", 'r') as gender_file:
+with open(r"D:\sem_8\Information Retrieval\pan18-author-profiling-training-dataset-2018-02-27\pan18-author-profiling-training-dataset-2018-02-27\ar\ar.txt", 'r') as gender_file:
     for line in gender_file:
         user_id, gender = line.strip().split(':::')
         gender_dict[user_id] = 1 if gender.strip() == 'female' else 0  
@@ -311,7 +313,7 @@ accuracy = np.mean(y_pred == y_test)
 print("XGB Accuracy:", accuracy)
 
 # Save the trained model to a file
-model_filename = 'xgb_classifier_15_04_f35feat.pkl'
+model_filename = r'.\Arabic\xgb_classifier_15_04_f35feat.pkl'
 xgb_classifier.save_model(model_filename)
 
 from sklearn.metrics import classification_report
