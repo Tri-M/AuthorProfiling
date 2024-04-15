@@ -1,30 +1,29 @@
+import os
 import xml.etree.ElementTree as ET
 import re
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-from nltk.stem import PorterStemmer
+from nltk.stem import ISRIStemmer
+from sklearn.feature_extraction.text import TfidfVectorizer
+import numpy as np
 
-import os
-import xml.etree.ElementTree as ET
-import re
-
+# Download necessary NLTK resources
 nltk.download('stopwords')
 nltk.download('punkt')
 
-
+# Initialize Arabic stopwords and stemmer
 stop_words = set(stopwords.words('arabic'))
-# Initialize english stemmer
 stemmer = ISRIStemmer()
 
 def preprocess_xml_files(folder_path):
-    preprocessed_data = {}
+    preprocessed_data = []
     for filename in os.listdir(folder_path):
         if filename.endswith('.xml'):
             file_path = os.path.join(folder_path, filename)
             author_data = parse_xml(file_path)
             if author_data:
-                preprocessed_data[filename[:-4]]=author_data
+                preprocessed_data.append(author_data)
     return preprocessed_data
 
 def parse_xml(file_path):
@@ -41,58 +40,17 @@ def parse_xml(file_path):
     except Exception as e:
         print(f"Error parsing {file_path}: {e}")
         return None
-
 def preprocess_text(text):
-    # Remove opening and closing document tags
-    text = re.sub(r'<document>', '', text)
-    text = re.sub(r'</document>', '', text)
-    # Remove <![CDATA[ and ]]> from the content
-    text = re.sub(r'<!\[CDATA\[(.*?)\]\]>', r'\1', text)
-    # Remove punctuations
+    if text is None:
+        return ""
+    # Remove HTML tags and special characters
+    text = re.sub(r'<[^>]+>', '', text)
     text = re.sub(r'[^\w\s]', '', text)
-    # Remove happy and sad smileys
-    text = re.sub(r':\)', '', text)
-    text = re.sub(r':\(', '', text)
-    # Remove tweets or retweets
-    text = re.sub(r'\bRT\b', '', text)
-    # Remove hashtags
-    text = re.sub(r'#\w+', '', text)
-    # Remove slangs
-    
-    # slangs = {
-    #     'lol': '',
-    #     'rofl': '',
-    #     'omg': '',
-    #     'brb': '',
-    # }
-    # for slang, replacement in slangs.items():
-    #     text = re.sub(r'\b{}\b'.format(slang), replacement, text, flags=re.IGNORECASE)
-    # Tokenization
+    # Tokenize text
     tokens = word_tokenize(text)
-    # Remove stopwords and perform stemming
+    # Apply stemming and remove stopwords
     stemmed_tokens = [stemmer.stem(token) for token in tokens if token.lower() not in stop_words]
     return ' '.join(stemmed_tokens).strip()
-
-
-folder_path = r'F:\pan18-author-profiling-training-dataset-2018-02-27\pan18-author-profiling-training-dataset-2018-02-27\ar\text'
-output_file_path = 'mf_arabic_output.txt'
-
-preprocessed_data = preprocess_xml_files(folder_path)
-
-with open(output_file_path, 'w', encoding='utf-8') as f:
-    for user, author_data in preprocessed_data.items():
-        f.write(f"User {user}: {author_data['lang']}\n")
-        for i, tweet in enumerate(author_data['documents'], start=1):
-            f.write(f"Tweet {i}: {tweet}\n\n")
-
-print("Output written to", output_file_path)
-
-#________________________________________________________________
-# TF-IDF
-
-
-from sklearn.feature_extraction.text import TfidfVectorizer
-import numpy as np
 
 def load_tweets_from_file(output_file_path):
     tweets_per_user = {}
@@ -111,7 +69,7 @@ def load_tweets_from_file(output_file_path):
     return tweets_per_user
 
 
-# Function to calculate TF-IDF vectors for each user
+# # Function to calculate TF-IDF vectors for each user
 def calculate_tfidf_vectors(tweets_per_user):
     tfidf_vectors_per_user = {}
     tfidf_vectorizer = TfidfVectorizer()
@@ -144,19 +102,39 @@ def print_words_with_tfidf(tfidf_vectors_per_user, output_file):
                         f.write(f"{word}: {score}\n")
             f.write("\n")
 
-# Load the preprocessed tweets from the output file
+# Specify folder path containing XML files
+folder_path = 'F:/pan18-author-profiling-training-dataset-2018-02-27/pan18-author-profiling-training-dataset-2018-02-27/ar/text'
+output_file_path = 'F:/AP/AuthorProfiling/Arabic/arabic_output.txt'
+
+# Preprocess XML files and write preprocessed tweets to output file
+preprocessed_data = preprocess_xml_files(folder_path)
+with open(output_file_path, 'w', encoding='utf-8') as f:
+    for idx, author_data in enumerate(preprocessed_data):
+        f.write(f"User {idx + 1}: {author_data['lang']}\n")
+        for i, tweet in enumerate(author_data['documents'], start=1):
+            f.write(f"Tweet {i}: {tweet}\n\n")
+
+# Load preprocessed tweets from the output file
 tweets_per_user = load_tweets_from_file(output_file_path)
 
 # Calculate TF-IDF vectors for each user's tweets
 tfidf_vectors_per_user = calculate_tfidf_vectors(tweets_per_user)
 
-# Write the results to a new file
-output_tfidf_file_path = 'mf_arabic_tfidf_output.txt'
+# Specify output path for TF-IDF results
+output_tfidf_file_path = 'F:/AP/AuthorProfiling/Arabic/tfidf_output_file.txt'
+
+# Write TF-IDF words and scores to output file
 print_words_with_tfidf(tfidf_vectors_per_user, output_tfidf_file_path)
 
 print("TF-IDF words and scores written to", output_tfidf_file_path)
 
-# #__________________________________________
+
+
+# Preprocess XML files and write preprocessed tweets to output file
+
+
+
+#__________________________________________
 
 from sklearn.decomposition import TruncatedSVD
 
@@ -175,18 +153,17 @@ def perform_svd(tfidf_vectors_per_user, output_file):
 
 
 # Perform SVD for each user's TF-IDF vectors
-output_svd_file_path = 'mf_arabic_svd.txt'
+output_svd_file_path = 'F:/AP/AuthorProfiling/Arabic/arabic_svd.txt'
 perform_svd(tfidf_vectors_per_user, output_svd_file_path)
 print("SVD components written to", output_svd_file_path)
 
-from sklearn.decomposition import TruncatedSVD
+from sklearn.decomposition import TruncatedSVD  
 
 # Function to perform LSA for each user
 def perform_lsa(tfidf_vectors_per_user, output_file):
     with open(output_file, 'w', encoding='utf-8') as f:
         for user, (tfidf_vectorizer, tfidf_vectors) in tfidf_vectors_per_user.items():
             f.write(f"User {user}:\n")
-            
             combined_tfidf_vectors = tfidf_vectors[:100]  
             svd = TruncatedSVD(n_components=5)  
             lsa_vectors = svd.fit_transform(combined_tfidf_vectors)
@@ -197,120 +174,73 @@ def perform_lsa(tfidf_vectors_per_user, output_file):
             f.write("\n")
 
 # Perform LSA for each user's TF-IDF vectors
-output_lsa_file_path = 'mf_arabic_lsa.txt'
+output_lsa_file_path = 'F:/AP/AuthorProfiling/Arabic/arabic_lsa.txt'
 perform_lsa(tfidf_vectors_per_user, output_lsa_file_path)
 print("LSA components written to", output_lsa_file_path)
-# Define the filename
-filename = "F:\AP\AuthorProfiling\Arabic\mf_arabic_lsa.txt"
-# Initialize an empty dictionary to store LSA components
-lsa_components_dict = {}
 
-# Open the text file and read its contents
-with open(filename, 'r', encoding='utf-8') as f:
-    lines = f.readlines()
-
-# Parse the lines to extract user IDs and LSA components
-user_id = None
-lsa_components = []
-values=[]
-for line in lines:
-    if len(values)==5:
-        # print("lsa comp")
-        lsa_components.append(values)
-        values=[]
-    if line.startswith('User'):
-        # Extract user ID from the line
-        user_id = line.split('User ')[1].split('::')[0]
-        # print("user id")
-    elif line.startswith('LSA Component'):
-        # Skip the line containing 'LSA Component'
-        pass
-    elif line.startswith('Value'):
-        # Extract LSA component values
-        # print("value")
-        value = line.split(': ')[1].strip()
-        # print("Values : ",value)
-        values.append(float(value))
-        # End of user data, add to dictionary
-    elif line.startswith(''):
-        if lsa_components!=[]:
-            lsa_components_dict[user_id] = lsa_components
-            lsa_components = []
-
-# Print the dictionary
-# print(lsa_components_dict)
- 
-# # print(len(lsa_components_dict))
-# # print(len(lsa_components_dict.values()))
-# # print(len(lsa_components_dict[1]))
-# # print(len(lsa_components_dict[3000]))
-# # print(lsa_components_dict[1])
-
-# from sklearn import svm
-# import numpy as np
-
-# # Assuming your data is stored in a dictionary called 'data_dict'
-# # where keys are user labels and values are lists of 100 elements
-# # where each element is a list of 5 float values.
-
-# Step 1: Prepare the Data
-X = []  # Features
-y = []  # Labels
-
-for user_label, values in lsa_components_dict.items():
-    if len(values)<100:
-            values.append([0,0,0,0,0])
-            # print("Culprit",user_label,len(values))
-    for value_list in values:
-        if len(value_list)==5:
-            X.append(value_list)
-            y.append(user_label)
-            
-
-# # Pad elements with length less than 100 with zeros
-print("len :",len(X))
-
-# Read gender information from the text file and map 'male' and 'female' to 'm' and 'f'
-gender_dict = {}
-with open("F:\pan18-author-profiling-training-dataset-2018-02-27\pan18-author-profiling-training-dataset-2018-02-27\ar\ar.txt", 'r') as gender_file:
-    for line in gender_file:
-        user_id, gender = line.strip().split(':::')
-        gender_dict[user_id] = gender.strip()[0].lower()  # Extract the first character and convert to lowercase
-
-# Create a list of corresponding genders ('m' or 'f')
-y = [gender_dict.get(user_id, 'U') for user_id in y]
-
-
-# Convert X to numpy array
 import numpy as np
-X = np.array(X)
-y = np.array(y)
-# print(X)
-print("\n\n________________________________________________________")
-from sklearn.ensemble import RandomForestClassifier
+import xgboost as xgb
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 
-# Split the data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# Load LSA components from file
+def load_lsa_components(filename):
+    lsa_components_dict = {}
+    max_lsa_length = 0
 
-# Create a Random Forest classifier
-# Create a Random Forest classifier with adjusted parameters
-rf_classifier = RandomForestClassifier(n_estimators=200, 
-                                        max_depth=20, 
-                                        min_samples_split=5, 
-                                        max_features="sqrt", 
-                                        max_samples=0.8, 
-                                        random_state=42, 
-                                        verbose=1)
+    with open(filename, 'r') as file:
+        for line in file:
+            line = line.strip()
+            if line.startswith("User"):
+                current_user_label = int(line.split()[1].replace("::", ""))
+                current_lsa_values = []
+            elif line.startswith("Value"):
+                _, lsa_value = line.split(": ")
+                current_lsa_values.append(float(lsa_value))
+            elif not line:
+                lsa_components_dict[current_user_label] = current_lsa_values
+                max_lsa_length = max(max_lsa_length, len(current_lsa_values))
 
-# Train the classifier on the training data
-rf_classifier.fit(X_train, y_train)
+    # Pad LSA values to ensure they all have the same length
+    for user_label, lsa_values in lsa_components_dict.items():
+        padding_length = max_lsa_length - len(lsa_values)
+        lsa_components_dict[user_label] = lsa_values + [0] * padding_length  # Pad with zeros
 
-# Evaluate the model on the testing data
-accuracy = rf_classifier.score(X_test, y_test)
-print("Accuracy:", accuracy)
+    return lsa_components_dict
 
-import pickle
+lsa_file_path = 'F:/AP/AuthorProfiling/Arabic/arabic_lsa.txt'
+lsa_components_dict = load_lsa_components(lsa_file_path)
 
-with open(r'D:\sem_8\Information Retrieval\package\AuthorProfiling\Arabic\rf_model_200xDT_mDepth20_sam8_29_03.pkl', 'wb') as f:
-    pickle.dump(rf_classifier, f)
+# # Prepare data for training and testing
+# X = np.array(list(lsa_components_dict.values()))  # Features
+# y = np.array(list(lsa_components_dict.keys()))    # Labels
+
+# # Encode labels as integers starting from 0
+# label_to_index = {label: index for index, label in enumerate(np.unique(y))}
+# y_encoded = np.array([label_to_index[label] for label in y])
+
+# from sklearn.preprocessing import LabelEncoder
+# # Split the data into training and testing sets
+# X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=42)
+# # Encode labels as integers starting from 0
+# label_encoder = LabelEncoder()
+# y_train_encoded = label_encoder.fit_transform(y_train)
+
+# # Print unique values of y_train_encoded
+# print("Unique values of y_train_encoded:", np.unique(y_train_encoded))
+
+# # Initialize XGBoost classifier with GPU support
+# xgb_classifier = xgb.XGBClassifier(tree_method='gpu_hist')
+
+# # Train the classifier
+# xgb_classifier.fit(X_train, y_train_encoded)
+
+# # Predict on the test set
+# y_pred_encoded = xgb_classifier.predict(X_test)
+
+# # Decode predicted labels
+# y_pred = label_encoder.inverse_transform(y_pred_encoded)
+
+# # Calculate accuracy
+# accuracy = accuracy_score(y_test, y_pred)
+# print("Accuracy:", accuracy)
