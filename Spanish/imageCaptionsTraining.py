@@ -75,15 +75,15 @@ def write_lsa_results_to_file(lsa_vectors_per_user, output_filename):
     with open(output_filename, 'w') as f:
         for user, (lsa, lsa_vectors) in lsa_vectors_per_user.items():
             f.write(f"User: {user}\n")
-            for i, lsa_component in enumerate(lsa.components_):
-                f.write(f"LSA Component {i + 1}:\n")
-                for j, value in enumerate(lsa_component):
-                    f.write(f"Value {j + 1}: {value:.6f}\n")
+            for component_idx in range(lsa_vectors.shape[1]):
+                f.write(f"LSA Component {component_idx + 1}:\n")
+                for value_idx, value in enumerate(lsa.components_[component_idx]):
+                    f.write(f"Value {value_idx + 1}: {value:.12f}\n")
             f.write("\n")
 
 # Define the filename containing the captions
 caption_filename = r'F:\AP\AuthorProfiling\Spanish\spanish_captions_output.txt'
-output_filename = r'spanish_output_lsa_components.txt'
+output_filename = r'spanish_captions_output_lsa_components.txt'
 
 # Load and parse image captions for each user
 user_captions = load_captions(caption_filename)
