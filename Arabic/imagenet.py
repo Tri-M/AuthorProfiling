@@ -6,12 +6,11 @@ from tensorflow.keras.applications import VGG16
 import numpy as np
 import cv2
 import os
-from googletrans import Translator
+
 
 def process_images_in_folder(folder_path, model, output_file):
     count_processed = 0  # Initialize a counter for processed images
-    translator = Translator()
-
+    
     with open(output_file, 'w') as f:
         for root, dirs, files in os.walk(folder_path):
             subfolder_name = os.path.basename(root)
@@ -48,11 +47,9 @@ def process_images_in_folder(folder_path, model, output_file):
                         preds = model.predict(image)
                         P = decode_predictions(preds)
 
-                        for (imagenetID, label, prob) in P[0]:
-                            # Translate label to Arabic using googletrans
-                            translated_label = translator.translate(label, src='en', dest='ar').text
-                            caption = f"{filename} caption: {translated_label}, {prob * 100:.2f}%"
-                            f.write(f"{caption}\n")
+                        (imagenetID, label, prob) = P[0][0]
+                        caption = f"{filename} caption: {label}, {prob * 100:.2f}%"
+                        f.write(f"{caption}\n")
 
                         count_processed += 1  # Increment the processed image counter
 
