@@ -1,0 +1,108 @@
+import numpy as np
+import xgboost as xgb
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+# Load LSA components from file
+def load_lsa_components(filename):
+
+    # Initialize an empty dictionary to store the LSA components for each user
+    lsa_components_dict = {}
+
+    # Open the text file and read its contents
+    with open(filename, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+
+    # Parse the lines to extract user IDs and LSA components
+    user_id = None
+    lsa_components = []
+    values=[]
+    for line in lines:
+        if len(values)==35:
+            # print("lsa comp")
+            lsa_components.append(values)
+            values=[]
+        if line.startswith('User'):
+            # Extract user ID from the line
+            user_id = line.split('User: ')[1].split('\n')[0]
+            # print("user id")
+        elif line.startswith('LSA Component'):
+            # Skip the line containing 'LSA Component'
+            pass
+        elif line.startswith('Value'):
+            # Extract LSA component values
+            # print("value")
+            value = line.split(': ')[1].strip()
+            # print("Values : ",value)
+            values.append(float(value))
+            # End of user data, add to dictionary
+        elif line.startswith(''):
+            if lsa_components!=[]:
+                lsa_components_dict[user_id] = lsa_components
+                lsa_components = []
+
+    return lsa_components_dict
+
+filename = r"F:\AP\AuthorProfiling\Arabic\captions_output_arabic.txt"
+lsa_components_dict=load_lsa_components(filename)
+
+
+from sklearn import svm
+import numpy as np
+
+# Assuming your data is stored in a dictionary called 'data_dict'
+# where keys are user labels and values are lists of 100 elements
+# where each element is a list of 5 float values.
+
+# Step 1: Prepare the Data
+X = []  # Features
+y = []  # Labels
+
+for user_label, values in lsa_components_dict.items():
+    while len(values)<35:
+            values.append([0 for i in range(35)])
+            # print("Culprit",user_label,len(values))
+    for value_list in values:
+        if len(value_list)==35:
+            X.append(value_list)
+            y.append(user_label)
+            
+
+# Pad elements with length less than 100 with zeros
+# max_length = max(len(x) for x in X)
+# X = [x + [[0, 0, 0, 0, 0]] * (max_length - len(x)) if len(x) < 100 else x for x in X]
+gender_dict = {}
+with open("F:/pan18-author-profiling-training-dataset-2018-02-27/pan18-author-profiling-training-dataset-2018-02-27/ar/ar.txt", 'r') as gender_file:
+    for line in gender_file:
+        user_id, gender = line.strip().split(':::')
+        gender_dict[user_id] = 1 if gender.strip() == 'female' else 0  
+# Create a list of corresponding genders ('m' or 'f')
+y = [gender_dict.get(user_id, 'U') for user_id in y]
+
+
+# Convert X to numpy array
+X = np.array(X)
+y = np.array(y)
+print(X)
+print(y)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# y_train -= 1
+# Initialize XGBoost classifier with GPU support and set verbose=True
+xgb_classifier = xgb.XGBClassifier(tree_method='gpu_hist', verbose=True)
+
+# Train the classifier
+xgb_classifier.fit(X_train, y_train)
+
+# Predict on the test set
+y_pred = xgb_classifier.predict(X_test)
+
+# Calculate accuracy
+accuracy = np.mean(y_pred == y_test)
+print("XGB Accuracy:", accuracy)
+
+# Save the trained model to a file
+model_filename = 'xgb_classifier_16_04_f35feat.pkl'
+xgb_classifier.save_model(model_filename)
+
+from sklearn.metrics import classification_report
+print(classification_report(y_test, y_pred))
